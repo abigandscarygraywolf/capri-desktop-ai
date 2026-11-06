@@ -434,6 +434,8 @@ class Avatar(QWidget):
                 continue
             for name in sorted(os.listdir(folder)):
                 low = name.lower()
+                if "sit" in low or "сид" in low:  # поза «сидит» — только для окон
+                    continue
                 if folder == assets_dir and low not in ("capri.png", "capri.jpg", "capri.webp"):
                     continue
                 if low.endswith((".png", ".webp", ".jpg")) and low not in [os.path.basename(f).lower()
@@ -452,6 +454,15 @@ class Avatar(QWidget):
             if os.path.exists(path):
                 self.roam_img = load_custom(path, W, FIG_H)
                 break
+        # поза «сидит» для окон: capri_sit.png (или файл со словом sit / сидит) в assets/poses
+        self.sit_img = None
+        if os.path.isdir(pose_dir):
+            for name in sorted(os.listdir(pose_dir)):
+                low = name.lower()
+                if ("sit" in low or "сид" in low) and low.endswith((".png", ".webp", ".jpg")):
+                    self.sit_img = load_custom(os.path.join(pose_dir, name), W, FIG_H)
+                    if self.sit_img is not None:
+                        break
         self.pose_idx = 0
         self.next_pose = 0.0
         self.roaming = False
@@ -490,9 +501,23 @@ class Avatar(QWidget):
         self._press = None
         self._moved = False
 
+        from window_perch import Perch
+        self.perch = Perch(self)     # сидение на окнах (включает main из config)
+        self.perch_hide_after = 90.0  # сидя на окне, Капри прячется не так быстро
+
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.tick)
         self.timer.start(33)
+
+    # ---------- сидение на окнах ----------
+    def _low(self):
+        """Фигура внизу окна аватара, текст сверху: на прогулке. На окне — как обычно: фигура сверху,
+        субтитры под ней, поверх окна, на котором она сидит."""
+        return self.roaming
+
+    def perch_figure(self):
+        """Картинка, в которой Капри сидит на окне: по ней считается, где ноги."""
+        return self.sit_img if self.sit_img is not None else self.base
 
     # ---------- управление ----------
     def start_roam(self):
@@ -560,6 +585,7 @@ class Avatar(QWidget):
         target.setX(max(geo.left(), min(geo.right() - W, target.x())))
         target.setY(max(geo.top(), min(geo.bottom() - H, target.y())))
         self.hopping, self.hop_home = False, None
+        self.perch.release(free=True)  # попросили встать в угол — с окна слезает
         if self.state == "visible" and not self.roaming:
             self.teleport(target)
         else:
@@ -567,7 +593,7 @@ class Avatar(QWidget):
 
     def start_hopping(self):
         """Пока Капри отвечает, она скачет по экрану красной молнией."""
-        if self.roaming:
+        if self.roaming or self.perch.active:  # на окне сидит смирно
             return
         if self.hop_home is None:
             self.hop_home = self.pos()
@@ -626,7 +652,9 @@ class Avatar(QWidget):
             return
         if len(self.poses) > 1:  # каждое появление — в случайной позе
             self.change_pose(random.randrange(len(self.poses)))
-        if not self.user_moved:
+        if self.perch.enabled and self.perch.place_now():
+            pass  # появилась сразу на активном окне
+        elif not self.user_moved:
             self.move(self._random_spot())  # каждый раз появляется в новом месте экрана
         self.state, self.k = "appearing", 0
         self.hide_at = 0
@@ -666,6 +694,7 @@ class Avatar(QWidget):
         elif self.state == "vanishing" and self.k >= VANISH_FRAMES:
             self.state = "hidden"
             self.hide()
+            self.perch.reset()
             self.hopping, self.tele_target = False, None
             if self.hop_home is not None:
                 self.move(self.hop_home)
@@ -688,8 +717,12 @@ class Avatar(QWidget):
         elif (self.state == "visible" and self.next_pose and now > self.next_pose and self.anim is None
               and self.mode != "thinking"):
             self.change_pose()
-        elif self.state == "visible" and self.hide_at and now > self.hide_at:
+        elif self.state == "visible" and self.hide_at and now > self.hide_at + (
+                max(0.0, self.perch_hide_after - self.hide_after) if self.perch.active else 0):
             self.vanish()
+        if (self.state == "visible" and not self.roaming and self.tele_target is None and self._press is None
+                and self.hop_home is None):
+            self.perch.tick(now)
 
         # «лаг»: кадр замирает на несколько тиков
         if self.lag > 0 and self.state != "vanishing":
@@ -710,6 +743,8 @@ class Avatar(QWidget):
             self.anim = None
         if self.roaming and self.roam_img is not None:
             return self.roam_img.copy()
+        if self.perch.active and self.sit_img is not None:
+            return self.sit_img.copy()
         fig = self.base.copy()
         if self.eye_pos is None:
             return fig
@@ -754,7 +789,7 @@ class Avatar(QWidget):
         f.fill(Qt.GlobalColor.transparent)
         p = QPainter(f)
         p.setRenderHint(AA)
-        if self.roaming:
+        if self._low():
             p.translate(0, H - FIG_H)  # фигура внизу, место сверху — под окно с текстом
         glitch = 0.0
         flash = False
@@ -863,7 +898,7 @@ class Avatar(QWidget):
 
     def _hud(self, p, glitch):
         # на прогулке окно с текстом сверху, фигура под ним
-        top = 6 if self.roaming else FIG_H + 6
+        top = 6 if self._low() else FIG_H + 6
         bottom = top + (H - FIG_H) - 12
         panel = QPolygonF([QPointF(6, top), QPointF(W - 22, top), QPointF(W - 6, top + 16),
                            QPointF(W - 6, bottom), QPointF(22, bottom), QPointF(6, bottom - 16)])
@@ -953,4 +988,6 @@ class Avatar(QWidget):
         if e.button() == Qt.MouseButton.LeftButton:
             if not self._moved:
                 self.clicked.emit()
+            elif self.perch.available:
+                self.perch.dropped()  # отпустили на верх окна — садится на него
             self._press = None

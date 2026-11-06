@@ -78,6 +78,9 @@ DEFAULTS = {
     "chatter_min_minutes": 15,
     "chatter_max_minutes": 40,
     "roam_chance": 0.5,
+    "perch_windows": True,       # Капри садится на верхний край активного окна и ездит вместе с ним
+    "perch_hide_after": 90,      # сидя на окне, прячется через столько секунд тишины
+    "perch_sink": None,          # на сколько пикселей ноги свисают ниже края окна (None — авто)
     "teleport_on_answer": True,
     "search_when_unsure": True,
     "voice_volume": 100,     # громкость голоса Капри 0..100 (общая громкость Windows не меняется)
@@ -292,6 +295,7 @@ class Capri(QObject):
     roam = Signal()
     hop = Signal()
     move_to = Signal(str)
+    perch_changed = Signal(bool)   # галочка «Сидеть на окнах»
 
     def __init__(self, cfg):
         super().__init__()
@@ -721,6 +725,13 @@ class Capri(QObject):
         save_setting("activity_comments", bool(on))
         log.info("Комментарии к музыке и видео: %s", "включены" if on else "выключены")
 
+    def set_perch(self, on):
+        """Галочка «Сидеть на окнах» (трей и настройки). Сразу и запоминается."""
+        self.cfg["perch_windows"] = bool(on)
+        save_setting("perch_windows", bool(on))
+        self.perch_changed.emit(bool(on))
+        log.info("Сидение на окнах: %s", "включено" if on else "выключено")
+
     def set_search_when_unsure(self, on):
         """Галочка в трее: открывать ли Google, когда Капри не знает ответа. Сразу и запоминается."""
         self.cfg["search_when_unsure"] = bool(on)
@@ -1115,6 +1126,11 @@ def main():
     capri.roam.connect(avatar.start_roam)
     capri.hop.connect(avatar.start_hopping)
     capri.move_to.connect(avatar.move_to_named)
+    avatar.perch.set_enabled(cfg.get("perch_windows", True))
+    avatar.perch_hide_after = float(cfg.get("perch_hide_after", 90))
+    if cfg.get("perch_sink") is not None:
+        avatar.perch.sink = float(cfg["perch_sink"])
+    capri.perch_changed.connect(avatar.perch.set_enabled)
     avatar.clicked.connect(capri.call_from_click)
     avatar.petted.connect(capri.on_pet)
 
@@ -1247,13 +1263,21 @@ def main():
             activity_act.toggled.connect(capri.set_activity)
             menu.addAction(activity_act)
 
-            def sync_search(a=search_act, b=chatter_act, c=activity_act):
+            # галочка: сидеть на окнах (perch_windows)
+            perch_act = QAction("Сидеть на окнах", menu)
+            perch_act.setCheckable(True)
+            perch_act.toggled.connect(capri.set_perch)
+            perch_act.setVisible(avatar.perch.available)  # только Windows
+            menu.addAction(perch_act)
+
+            def sync_search(a=search_act, b=chatter_act, c=activity_act, d=perch_act):
                 capri.reload_config_if_changed(speak=False)  # могли поменять в config.json руками
                 for act, key, default in ((a, "search_when_unsure", True), (b, "chatter", True),
-                                           (c, "activity_comments", False)):
+                                           (c, "activity_comments", False), (d, "perch_windows", True)):
                     act.blockSignals(True)
                     act.setChecked(bool(capri.cfg.get(key, default)))
                     act.blockSignals(False)
+                avatar.perch.set_enabled(capri.cfg.get("perch_windows", True))  # могли поменять в config.json
             menu.aboutToShow.connect(sync_search)
             continue
         act = QAction(title, menu)

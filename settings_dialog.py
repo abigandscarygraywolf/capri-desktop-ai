@@ -65,6 +65,9 @@ class SettingsDialog(QDialog):
         self.intimate = self._toggle("Интимный режим (18+)",
                                      "Пошлые шутки при поглаживании мышью по Капри и при подключении зарядки "
                                      "(на ноутбуке). Свой звук: assets/sounds/charge.wav")
+        self.perch = self._toggle("Сидеть на окнах",
+                                  "Капри садится на верхний край активного окна и ездит вместе с ним. "
+                                  "Перетащите её мышью на любое окно — останется на нём")
         self.quiet_from = self._time("Тихие часы · С")
         self.quiet_to = self._time("Тихие часы · До")
         test = QPushButton("🔔  Тестовое уведомление")
@@ -80,6 +83,7 @@ class SettingsDialog(QDialog):
         self.character.currentIndexChanged.connect(lambda: self.save(character=self.character.currentData()))
         self.level.currentIndexChanged.connect(lambda: self.capri.set_notify_level(self.level.currentData()))
         self.attention.toggled.connect(lambda on: self.save(needs_attention=on))
+        self.perch.toggled.connect(self.capri.set_perch)
         self.swear.toggled.connect(lambda on: self.adult("swearing", self.swear, on))
         self.intimate.toggled.connect(lambda on: self.adult("intimate", self.intimate, on))
         self.quiet_from.timeChanged.connect(lambda t: self.save(quiet_from=t.toString("HH:mm")))
@@ -135,7 +139,8 @@ class SettingsDialog(QDialog):
     def load(self):
         cfg = self.capri.cfg
         self.profile.setText("Профиль: " + self.capri.profiles.active()["name"] + "  •  настройки сохраняются в профиле")
-        widgets = (self.character, self.level, self.attention, self.swear, self.intimate, self.quiet_from, self.quiet_to)
+        widgets = (self.character, self.level, self.attention, self.swear, self.intimate, self.perch,
+                   self.quiet_from, self.quiet_to)
         for w in widgets:
             w.blockSignals(True)
         self.character.setCurrentIndex(max(0, self.character.findData(cfg.get("character", "bold"))))
@@ -144,11 +149,12 @@ class SettingsDialog(QDialog):
         adult = bool(cfg.get("adult_confirmed"))
         self.swear.setChecked(bool(cfg.get("swearing")) and adult)
         self.intimate.setChecked(bool(cfg.get("intimate")) and adult)
+        self.perch.setChecked(bool(cfg.get("perch_windows", True)))
         self.quiet_from.setTime(QTime.fromString(cfg.get("quiet_from", "23:00"), "HH:mm"))
         self.quiet_to.setTime(QTime.fromString(cfg.get("quiet_to", "09:00"), "HH:mm"))
         for w in widgets:
             w.blockSignals(False)
-        for b in (self.attention, self.swear, self.intimate):
+        for b in (self.attention, self.swear, self.intimate, self.perch):
             self._paint(b)
 
     def save(self, **values):
