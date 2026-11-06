@@ -14,7 +14,7 @@ import re
 import urllib.error
 import urllib.request
 
-from persona import CHARACTER, SPEECH_RULES, user_context
+from persona import FRESH, CHARACTER, SPEECH_RULES, user_context
 
 log = logging.getLogger("capri")
 
@@ -118,8 +118,6 @@ class AI:
 
 
 # ---------- OpenAI-совместимые сервисы (OrcaRouter и другие) ----------
-FRESH = re.compile(r"погод|новост|курс (доллар|евро|рубл|валют|биткоин)|сколько стоит|цена|цены|"
-                   r"сч[её]т матча|кто выиграл|расписани|пробк|сегодня в мире")
 
 COMPAT_SYSTEM = f"""{CHARACTER}
 

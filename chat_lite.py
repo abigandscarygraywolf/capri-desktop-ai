@@ -7,10 +7,8 @@ import datetime
 import random
 import re
 
-from persona import USER, gendered
+from persona import FRESH, USER, gendered
 
-FRESH = re.compile(r"погод|новост|курс (доллар|евро|рубл|валют|биткоин)|сколько стоит|цена|цены|"
-                   r"счет матча|счёт матча|кто выиграл|расписани|пробк")
 
 
 def _norm(text):

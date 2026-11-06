@@ -135,7 +135,13 @@ def set_brightness(v):
 PROTECTED_PROCS = {"explorer", "python", "pythonw", "svchost", "csrss", "winlogon", "dwm", "lsass", "services",
                    "system", "smss", "wininit", "fontdrvhost", "sihost", "taskhostw", "ctfmon", "runtimebroker",
                    "searchhost", "startmenuexperiencehost", "shellexperiencehost", "textinputhost", "ollama",
-                   "ollama app", "conhost", "audiodg"}
+                   "ollama app", "conhost", "audiodg", "capri"}
+try:  # собранный Capri.exe тоже нельзя «закрыть» голосом — это была бы сама Капри
+    from paths import EXE_NAME
+    if EXE_NAME:
+        PROTECTED_PROCS.add(EXE_NAME)
+except ImportError:
+    pass
 SKIP_WORDS = ("uninstall", "удален", "удалить", "деинсталл", "readme", "help", "справка", "documentation",
               "license", "support", "поддержк", "feedback", "release notes", "website")
 

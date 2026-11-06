@@ -11,14 +11,16 @@ import tempfile
 import threading
 import time
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+from paths import APP_DIR, FROZEN, ensure_model, res
+
+BASE = APP_DIR  # данные пользователя: рядом с main.py или рядом с Capri.exe
 CONFIG_PATH = os.path.join(BASE, "config.json")
 
 # журнал — до всех библиотек: если какой-то не хватает, Капри падает без окна, и узнать причину можно только тут
 logging.basicConfig(filename=os.path.join(BASE, "capri.log"), level=logging.INFO, encoding="utf-8",
                     format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("capri")
-log.info("Python %s", sys.version.split()[0])
+log.info("Python %s%s", sys.version.split()[0], " (Capri.exe)" if FROZEN else "")
 
 
 def fatal(text):
@@ -201,7 +203,7 @@ def apply_user(cfg):
     set_user(user_display_name(cfg), cfg.get("user_gender", "male"))
 
 
-from ai import FRESH as FRESH_RE  # вопросы про свежие данные (погода, курсы, новости)
+from persona import FRESH as FRESH_RE  # вопросы про свежие данные (погода, курсы, новости)
 
 PROFILE_KEYS = ("character", "notify_level", "needs_attention", "attention_after_minutes", "swearing",
                 "intimate", "adult_confirmed", "quiet_from", "quiet_to")
@@ -354,7 +356,8 @@ class Capri(QObject):
         from life import Life
         self.life = Life(self)   # программы (игры, VS Code, Telegram, Discord), «сидишь три часа», приветствия
         self.life.start()
-        model =os.path.join(BASE, self.cfg["vosk_model"])
+        model = os.path.join(BASE, self.cfg["vosk_model"])
+        ensure_model(model, log)  # нет модели, но есть архив в bundled/ — распакуем (exe, или не запускали setup.bat)
         if os.path.isdir(model):
             self.listener = Listener(model, self.on_final, self.on_partial, self.on_listener_error,
                                      device_name=self.cfg.get("mic_device") or None,
@@ -645,12 +648,17 @@ class Capri(QObject):
             self.local.history.clear()
 
     def set_role(self, key):
-        """Выбор роли в окне чата. Реплика-открытие показывается в чате и озвучивается."""
+        """Выбор роли в окне чата. Сама смена — в рабочем потоке: проверка Ollama не подвешивает окно."""
+        self.jobs.put(("role", key))
+
+    def _set_role_now(self, key):
         text = self.roles.set(key)
+        self.role_changed.emit(self.roles.role or "")  # не включилась (нет нейросети) — список вернётся назад
         if text:
             self.text_reply.emit(text)
             if self.roles.speak() or not key:
-                self.jobs.put(("say", text))
+                self.say(text)
+        self.mode.emit("idle", 0.0)
 
     # ----- чат: ответ с потоковым выводом -----
     def chat_answer(self, cmd):
@@ -848,6 +856,9 @@ class Capri(QObject):
 
     def _process(self, job):
         kind = job[0]
+        if kind == "role":
+            self._set_role_now(job[1])
+            return
         if kind == "chatter":
             text = self.chatter_line()
             if random.random() < self.cfg.get("roam_chance", 0.5):
@@ -1080,7 +1091,7 @@ def main():
     app.setQuitOnLastWindowClosed(False)
     cfg = load_config()
 
-    avatar = Avatar(os.path.join(BASE, "assets"))
+    avatar = Avatar(res("assets"))
     avatar.hide_after = float(cfg["hide_after_seconds"])
     apply_user(cfg)
     capri = Capri(cfg)

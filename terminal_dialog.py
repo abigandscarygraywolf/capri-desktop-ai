@@ -203,8 +203,7 @@ class TerminalDialog(QDialog):
         """Ответы на команды Windows и служебные сообщения (смена профиля и т. п.)."""
         if self.capri.profiles.active()["id"] != self.profile_id:
             self.load_history()
-        if not self.isVisible():
-            return
+        # сохраняем всегда: окно могли закрыть, пока команда выполнялась, — при открытии ответ будет на месте
         self.capri.history.add(self.profile_id, "capri", answer)
         self._add("capri", answer)
 

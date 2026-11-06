@@ -10,7 +10,7 @@ import subprocess
 import time
 import urllib.request
 
-from persona import CHARACTER, SPEECH_RULES, role_active, role_tokens, user_context
+from persona import FRESH, CHARACTER, SPEECH_RULES, role_active, role_tokens, user_context
 
 log = logging.getLogger("capri")
 URL = "http://127.0.0.1:11434"
@@ -25,8 +25,6 @@ SYSTEM = f"""{CHARACTER}
 Только если вопрос про текущие события (погода сейчас, свежие новости, курсы валют, цены,
 результаты недавних матчей), ответь ровно одним словом: {SEARCH_MARK}"""
 
-FRESH = re.compile(r"погод|новост|курс (доллар|евро|рубл|валют|биткоин)|сколько стоит|цена|цены|"
-                   r"счет матча|кто выиграл|расписани|пробк|сегодня в мире")
 
 
 FOREIGN = re.compile(r"[　-鿿가-힯＀-￯]+")

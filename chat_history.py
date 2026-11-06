@@ -7,7 +7,9 @@ import os
 import threading
 import time
 
-DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "history")
+from paths import app
+
+DIR = app("history")
 KEEP = 2000  # столько сообщений храним в файле, старые обрезаются
 
 
