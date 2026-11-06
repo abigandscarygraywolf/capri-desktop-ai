@@ -136,9 +136,20 @@ class OpenAICompatAI:
     """Чат через API в формате OpenAI (/chat/completions). Тот же интерфейс, что у AI."""
 
     def __init__(self, cfg):
-        self.base_url = (cfg.get("ai_base_url") or "https://api.orcarouter.ai/v1").rstrip("/")
-        self.model = cfg.get("ai_model") or "orcarouter/auto"
-        self.key = (cfg.get("ai_api_key") or os.environ.get("ORCAROUTER_API_KEY")
+        provider = str(cfg.get("ai_provider", "")).lower()
+        base = (cfg.get("ai_base_url") or "").strip()
+        model = (cfg.get("ai_model") or "").strip()
+        if provider == "openrouter":
+            # OpenRouter: адрес и модель по умолчанию свои (значения OrcaRouter из старого config не мешают)
+            if not base or "orcarouter" in base:
+                base = "https://openrouter.ai/api/v1"
+            if not model or model.startswith("orcarouter/"):
+                model = "openrouter/auto"
+        self.base_url = (base or "https://api.orcarouter.ai/v1").rstrip("/")
+        self.model = model or "orcarouter/auto"
+        self.openrouter = "openrouter.ai" in self.base_url
+        self.key = (cfg.get("ai_api_key") or os.environ.get("OPENROUTER_API_KEY" if self.openrouter else
+                                                             "ORCAROUTER_API_KEY")
                     or os.environ.get("OPENAI_API_KEY") or "").strip()
         self.timeout = float(cfg.get("ai_timeout_seconds", 60))
         self.history = []
@@ -153,11 +164,12 @@ class OpenAICompatAI:
     def _request(self, messages, max_tokens, stream):
         body = {"model": self.model, "messages": messages, "max_tokens": max_tokens,
                 "temperature": 0.7, "stream": stream}
-        req = urllib.request.Request(
-            self.base_url + "/chat/completions", data=json.dumps(body).encode("utf-8"),
-            headers={"Content-Type": "application/json", "Authorization": "Bearer " + self.key,
-                     "Accept": "text/event-stream" if stream else "application/json",
-                     "User-Agent": "Capri/1.0"})
+        headers = {"Content-Type": "application/json", "Authorization": "Bearer " + self.key,
+                   "Accept": "text/event-stream" if stream else "application/json", "User-Agent": "Capri/1.0"}
+        if self.openrouter:  # подпись приложения в статистике OpenRouter (необязательно)
+            headers["X-Title"] = "Capri"
+        req = urllib.request.Request(self.base_url + "/chat/completions", data=json.dumps(body).encode("utf-8"),
+                                     headers=headers)
         try:
             return urllib.request.urlopen(req, timeout=self.timeout)
         except urllib.error.HTTPError as e:
@@ -263,6 +275,6 @@ class OpenAICompatAI:
 
 def make_ai(cfg):
     """Облачная нейросеть по полю ai_provider: anthropic (по умолчанию) или openai_compatible."""
-    if str(cfg.get("ai_provider", "anthropic")).lower() in ("openai_compatible", "openai", "orcarouter"):
+    if str(cfg.get("ai_provider", "anthropic")).lower() in ("openai_compatible", "openai", "orcarouter", "openrouter"):
         return OpenAICompatAI(cfg)
     return AI(cfg)
