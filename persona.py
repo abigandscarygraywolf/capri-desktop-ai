@@ -276,6 +276,14 @@ def set_memory(facts, mood=""):
     MEMORY["mood"] = mood or ""
 
 
+FEEL = {"text": ""}
+
+
+def set_feelings(text):
+    """Самочувствие Капри (mood.py): устала, в восторге и т. п. Пусто — ничего особенного."""
+    FEEL["text"] = text or ""
+
+
 def memory_context():
     text = ""
     if MEMORY["facts"]:
@@ -283,6 +291,8 @@ def memory_context():
                  ". Учитывай это к месту, не перечисляй всё подряд.")
     if MEMORY["mood"]:
         text += " " + MEMORY["mood"]
+    if FEEL["text"]:
+        text += " " + FEEL["text"]
     return text
 
 

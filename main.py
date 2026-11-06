@@ -43,7 +43,7 @@ try:
     from actions import CAPRI_URL, Actions, Reply
     from ai import make_ai
     from local_ai import LocalAI
-    from persona import LINES, gendered, line, set_style, set_user, styled
+    from persona import LINES, gendered, line, set_feelings, set_style, set_user, styled
     from avatar import Avatar
     import zapret
     from voice import (Listener, Speaker, default_input_name, google_stt, input_devices, make_glitch_sound,
@@ -308,6 +308,8 @@ class Capri(QObject):
         self.memory = Memory(self)     # факты о пользователе и шкала отношений (в профиле)
         self.achv = Achievements(self) # достижения и уровни (в профиле)
         self.roles = Roles(self)       # сказка, английский, друг, тренер, квест
+        from mood import Mood
+        self.mood = Mood(self)         # радость и усталость (окно «Профиль Капри»)
         self.history = ChatHistory()   # переписка в окне чата, у каждого профиля своя
         self.chat_cancel = False
         self._ai_note = ("", 0.0)
@@ -617,6 +619,7 @@ class Capri(QObject):
         self.last_pet = now
         self.last_user_interaction = now
         self.jobs.put(("say", styled("touch")))
+        self.mood.record("pet")
         change = self.memory.on_pet()
         if change:
             self.jobs.put(("say", change))
@@ -631,6 +634,8 @@ class Capri(QObject):
     # ----- достижения, роли -----
     def award(self, lines):
         """Объявить новые достижения: строка 🏆 в окне чата (и в истории) и голос."""
+        if lines:
+            self.mood.record("achievement")
         for text in lines or []:
             self.history.add(self.profiles.active()["id"], "ach", text)
             self.chat_award.emit(text)
@@ -859,6 +864,8 @@ class Capri(QObject):
         if kind == "role":
             self._set_role_now(job[1])
             return
+        if kind != "say":
+            set_feelings(self.mood.prompt())  # устала / в восторге — нейросеть отвечает с учётом этого
         if kind == "chatter":
             text = self.chatter_line()
             if random.random() < self.cfg.get("roam_chance", 0.5):
@@ -925,6 +932,7 @@ class Capri(QObject):
                 return
             role_id = self.roles.active()
             change = self.memory.on_interaction(cmd)
+            self.mood.on_text(cmd)
             self.award(self.achv.on_message(cmd, role_id))
             self.chat_cancel = False
             self.chat_started.emit()
@@ -962,6 +970,7 @@ class Capri(QObject):
 
         remembered = self.memory.handle(cmd)
         change = self.memory.on_interaction(cmd)
+        self.mood.on_text(cmd)
         self.award(self.achv.on_message(cmd))
         if change:
             self.jobs.put(("say", change))  # «кажется, мы подружились» — после ответа
@@ -1020,6 +1029,8 @@ class Capri(QObject):
     def say(self, text):
         """Озвучивает текст. Возвращает True, если Капри перебили."""
         log.info("Капри: %s", text)
+        if hasattr(self, "mood"):
+            self.mood.on_spoke(text)
         self.subtitle.emit(text)
         self.mode.emit("speaking", 0.0)
         barge_in = self.cfg.get("barge_in") and self.listener
@@ -1140,6 +1151,10 @@ def main():
         from profiles_dialog import ProfilesDialog
         show_window("profile", lambda: ProfilesDialog(capri))
 
+    def open_capri_profile():
+        from capri_profile import CapriProfile
+        show_window("capri_profile", lambda: CapriProfile(capri, open_user_profile=open_profile))
+
     def open_settings():
         from settings_dialog import SettingsDialog
         show_window("settings", lambda: SettingsDialog(capri))
@@ -1149,6 +1164,7 @@ def main():
                       ("Замолчать", capri.interrupt),
                       ("Чат и команды…", ask_text),
                       ("Мои сайты, программы и ответы…", open_entries),
+                      ("Профиль Капри…", open_capri_profile),
                       ("Настройки Капри…", open_settings),
                       ("Профили пользователей…", open_profile),
                       ("Проверить ПК", lambda: capri.text_command("проверь компьютер")),

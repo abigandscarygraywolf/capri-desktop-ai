@@ -99,6 +99,8 @@ class AttentionWatcher:
             self.next_at = time.time() + GAPS[n - 1] * 60
         elif hasattr(c, "memory"):
             c.memory.on_ignored()  # пять раз позвала — ответа нет: отношения остывают
+            if hasattr(c, "mood"):
+                c.mood.record("ignored")
         log.info("Требует внимания (%d/5): %s", n, text)
         c.jobs.put(("say", text))
 
