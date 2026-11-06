@@ -93,10 +93,10 @@ DEFAULTS = {
     "browser": "",
     "replies": {},           # свои ответы: {"фраза": "что ответит Капри"} — проверяются раньше команд и нейросети  # в каком браузере открывать сайты: "хром", "яндекс", "опера"… или путь к exe; "" — как в Windows
     "anthropic_api_key": "",
-    # облачная нейросеть: "anthropic" (Claude по ключу выше) или "openai_compatible" (OrcaRouter и др.)
+    # облачная нейросеть: "anthropic" (Claude по ключу выше), "openrouter" или "openai_compatible" (OrcaRouter и др.)
     "ai_provider": "anthropic",
     "ai_base_url": "https://api.orcarouter.ai/v1",
-    "ai_api_key": "",                 # ключ OrcaRouter: sk-orca-…
+    "ai_api_key": "",                 # ключ OpenRouter (sk-or-v1-…) или OrcaRouter (sk-orca-…)
     "ai_model": "orcarouter/auto",    # или конкретная: anthropic/claude-sonnet-5, openai/gpt-5.5 …
     "ai_timeout_seconds": 60,
     "model": "claude-opus-5-5",

@@ -107,7 +107,7 @@ class Roles:
     def enter(self, key):
         c = self.capri
         if not c.has_brain():
-            return ("Для этого режима нужна нейросеть. Подключи OrcaRouter в config.json или запусти Ollama, "
+            return ("Для этого режима нужна нейросеть. Подключи OpenRouter или OrcaRouter в config.json или запусти Ollama, "
                     "и мы поиграем.")
         role = ROLES[key]
         self.role, self.since, self.last = key, time.time(), time.time()
