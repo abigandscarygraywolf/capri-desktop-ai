@@ -434,8 +434,6 @@ class Avatar(QWidget):
                 continue
             for name in sorted(os.listdir(folder)):
                 low = name.lower()
-                if "sit" in low or "сид" in low:  # поза «сидит» — только для окон
-                    continue
                 if folder == assets_dir and low not in ("capri.png", "capri.jpg", "capri.webp"):
                     continue
                 if low.endswith((".png", ".webp", ".jpg")) and low not in [os.path.basename(f).lower()
@@ -454,15 +452,8 @@ class Avatar(QWidget):
             if os.path.exists(path):
                 self.roam_img = load_custom(path, W, FIG_H)
                 break
-        # поза «сидит» для окон: capri_sit.png (или файл со словом sit / сидит) в assets/poses
-        self.sit_img = None
-        if os.path.isdir(pose_dir):
-            for name in sorted(os.listdir(pose_dir)):
-                low = name.lower()
-                if ("sit" in low or "сид" in low) and low.endswith((".png", ".webp", ".jpg")):
-                    self.sit_img = load_custom(os.path.join(pose_dir, name), W, FIG_H)
-                    if self.sit_img is not None:
-                        break
+        # поза на окнах — та же, что на прогулке (capri_roam.png); нет её — обычная поза
+        self.sit_img = self.roam_img
         self.pose_idx = 0
         self.next_pose = 0.0
         self.roaming = False

@@ -10,8 +10,7 @@
 - Полноэкранные игры и видео, рабочий стол, панель задач и собственные окна Капри не трогает.
 
 Окна ищутся через WinAPI (ctypes, без лишних библиотек). Не на Windows модуль ничего не делает.
-Поза «сидит»: assets/poses/capri_sit.png (или любой файл со словом sit / сидит в имени) — если есть,
-используется, пока Капри на окне. Нет — Капри стоит на крае окна в обычной позе.
+Поза на окнах — capri_roam.png (та же, что на прогулке). Нет её — Капри стоит на крае в обычной позе.
 """
 import ctypes
 import logging
@@ -224,8 +223,7 @@ class Perch:
         img = self.avatar.perch_figure()
         top_pad, bottom_pad = self._pad(img)
         visible = FIG_H - top_pad - bottom_pad
-        sink = self.sink if self.sink is not None else (
-            visible * 0.2 if self.avatar.sit_img is not None else 3)
+        sink = self.sink if self.sink is not None else 3
         rel = self.rel if rel is None else rel
         x = rect.left() + rel * rect.width() - W / 2
         x = max(rect.left() - W * 0.25, min(rect.right() - W * 0.75, x))
